@@ -1,0 +1,339 @@
+﻿#define Wn 3;
+#define Rn 2;
+#define En 4;
+#define N 5;
+#define DKn 2;
+
+enum{Msg_Int1,Msg_Dat1,W,NN,HL,Retransmit};
+enum{K_pub,K_pri,NK_e_f,NK_d_f,K_pub_M,K_pri_M,K_pub_I,K_pri_I,K_pub_A,K_pri_A};
+enum{DataName,DKName,Data_f,DataName_f,DK_f,DKName_f,NKName};
+enum{K_pub_1,K_pub_2,K_pub_3,k_pub_ACM,k_pri_ACM,k_pri_Intruder,k_pub_Intruder,K_pri_1,K_pri_2,K_pri_3,K_W,K_R};
+enum{R,M,DN,H_K,DKN,NKN,K,DK,DATA,NK_e,NK_d};
+enum{H_K_1,H_K_2,H_K_3,H_K_4,H_K_5,NONE,K_M,K_I,K_A};
+enum{Reject};
+
+var data_decryption_success = false;
+var data_leakage_success = false;
+var nk_decryption_error = false;
+var nk_faking_success = false;
+var nk_misjudgement = false;
+var data_acquisition_success = false;
+
+var index = 0;
+var hit = false;
+var reEn = H_K_3;
+var cuEn = H_K_4;
+var is_rejected = false;
+
+var temp1;
+var temp2;
+var temp3;
+var temp4;
+var array = [H_K_1,H_K_2,H_K_3,H_K_4];
+
+#define checkEntry(H_k)
+{index = 0;
+hit = false;
+while(index >= 0 && index < En) {
+if(array[index] == H_k){
+hit = true;
+}
+index++;
+}
+};
+
+#define getData(dk,data,nk_e,dk1,k,nk_d,k1)
+{data_decryption_success=false;
+if(k1==k&&((nk_e==NK_e&&nk_d==NK_d)||(nk_e==NK_e_f&&nk_d==NK_d_f))&&
+dk==DK&&dk1==DK&&data==DATA)
+{data_decryption_success=true;}};
+
+#define getData1(dk,data,nk_e,dk1,k,nk_d,k1,k_m,k_m1)
+{data_decryption_success=false;
+if((k1==k&&
+((nk_e==NK_e&&nk_d==NK_d)||(nk_e==NK_e_f&&nk_d==NK_d_f))&&
+dk==DK&&dk1==DK&&
+data==DATA)&&(k_m==k_m1))
+{data_decryption_success=true}};
+
+#define getData2(dk,data,nk_e,dk1,k,nk_d,k1,k_m,k_m1,k_m2,k_c,k_c1)
+{data_decryption_success=false;
+if((k1==k&&
+((nk_e==NK_e&&nk_d==NK_d)||(nk_e==NK_e_f&&nk_d==NK_d_f))&&
+dk==DK&&dk1==DK&&
+data==DATA)&&(k_m==k_m1))
+{data_decryption_success=true}};
+
+#define getNK(nk_e,nk_d) //修改会影响正常COMRM??
+{nk_faking_success=false;
+if((nk_d==NK_d_f)&&((nk_e==NK_e_f)||(nk_e==NONE)))
+{nk_faking_success=true}
+};
+
+#define getNK1(nk_e,nk_d,k_m,k_m1) //修改会影响正常COMRM??
+{nk_faking_success=false;
+if((nk_d==NK_d_f)&&((nk_e==NK_e_f)||(nk_e==NONE))&&(k_m==k_m1))
+{nk_faking_success=true}
+};
+
+#define getNK2(nk_e,nk_d,k_m,k_m1,k_m2,k_c,k_c1) //修改会影响正常COMRM??
+{nk_faking_success=false;
+if((nk_d==NK_d_f)&&((nk_e==NK_e_f)||(nk_e==NONE))&&(k_m==k_m1)&&(k_c==k_c1)&&(k_m2==k_m))
+{nk_faking_success=true}
+};
+
+#define Revoke(H_k) //修改会影响正常COMRM??
+{index = 0;
+hit = false;
+while(index >= 0 && index < En) {
+if(array[index] == H_k){
+array[index] = NONE;
+}
+index++;
+}
+};
+
+channel ComWM 0;
+channel ComRM 0;
+channel FakeRM1 0;
+channel FakeWM1 0;
+channel FakeRM2 0;
+channel FakeWM2 0;
+channel CheckNK 0;
+
+READER(r,m,k,dn,H_k) = 
+         Initialization{data_decryption_success=false;nk_faking_success=false;cuEn=H_k;} ->(ComRM!r.m.dn.H_k ->(ComRM?Reject{is_rejected=true;} -> Skip[] ComRM?m.r.dkn.nkn -> ComRM!r.m.dn -> ComRM?m.r.dk.data -> ComRM!r.m.dkn -> ComRM?m.r.nk_e.dk1 -> ComRM!r.m.nkn.H_k -> 
+         ComRM?m.r.k1.nk_d{call(getNK,NONE,nk_d);call(getData,dk,data,nk_e,dk1,k1,nk_d,k)} -> Skip)
+         []FakeRM1!r.m.dn.H_k ->(FakeRM1?Reject{is_rejected=true;} -> Skip[] FakeRM1?m.r.dkn.nkn -> FakeRM1!r.m.dn -> FakeRM1?m.r.dk.data -> FakeRM1!r.m.dkn -> FakeRM1?m.r.nk_e.dk1 -> FakeRM1!r.m.nkn.H_k -> 
+         FakeRM1?m.r.k1.nk_d{call(getNK,NONE,nk_d);call(getData,dk,data,nk_e,dk1,k1,nk_d,k)} -> Skip));READER(r,m,k,dn,H_k);
+
+ACM_R(r,m,dkn,nkn,k,dk,data,nk_e,nk_d)  =
+       (ComRM?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComRM!m.r.dkn.nkn -> ComRM?r.m.dn -> ComRM!m.r.dk.data -> ComRM?r.m.dkn -> ComRM!m.r.nk_e.dk -> ComRM?r.m.nkn.H_k -> ComRM!m.r.k.nk_d -> Skip default: ComRM!Reject -> Skip}
+       []FakeRM2?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeRM2!m.r.dkn.nkn -> FakeRM2?r.m.dn -> FakeRM2!m.r.dk.data -> FakeRM2?r.m.dkn -> FakeRM2!m.r.nk_e.dk -> FakeRM2?r.m.nkn.H_k -> FakeRM2!m.r.k.nk_d -> Skip default: FakeRM2!Reject -> Skip});
+       ACM_R(r,m,dkn,nkn,k,dk,data,nk_e,nk_d);
+       
+WRITER(w,m,k,H_k,dn,dkn,data,dk) = 
+       Initialization1{nk_faking_success=false;cuEn=H_k;} -> ((ComWM!w.m.dn.dkn.H_k -> (ComWM?Reject{is_rejected=true;} -> Skip
+                                                                                               []ComWM?m.w.nkn -> ComWM!w.m.nkn.H_k -> ComWM?m.w.k.nk_e.nk_d{call(getNK,nk_e,nk_d);} -> ComWM?m.w.dn -> ComWM!w.m.dk.data -> ComWM?m.w.dkn -> ComWM!w.m.nk_e.dk -> Skip))
+                                                                      [](FakeWM1!w.m.dn.dkn.H_k -> (FakeWM1?Reject{is_rejected=true;} -> Skip
+                                                                                               []FakeWM1?m.w.nkn -> FakeWM1!w.m.nkn.H_k -> FakeWM1?m.w.k.nk_e.nk_d{call(getNK,nk_e,nk_d);} -> FakeWM1?m.w.dn -> FakeWM1!w.m.dk.data -> FakeWM1?m.w.dkn -> FakeWM1!w.m.nk_e.dk -> Skip)));
+                                                                                                 WRITER(w,m,k,H_k,dn,dkn,data,dk);
+                                                                    
+ACM_W(w,m,nkn,nk_e,nk_d,k) =
+       Initialization2{data_decryption_success=false;} -> ((ComWM?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComWM!m.w.nkn -> ComWM?w.m.nkn.H_k -> ComWM!m.w.k.nk_e.nk_d -> ComWM!m.w.dn -> ComWM?w.m.dk.data -> ComWM!m.w.dkn -> ComWM?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: ComWM!Reject -> Skip})
+                                                       [](FakeWM2?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeWM2!m.w.nkn -> FakeWM2?w.m.nkn.H_k -> FakeWM2!m.w.k.nk_e.nk_d -> FakeWM2!m.w.dn -> FakeWM2?w.m.dk.data -> FakeWM2!m.w.dkn -> FakeWM2?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: FakeWM2!Reject -> Skip})); ACM_W(w,m,nkn,nk_e,nk_d,k);
+
+
+
+
+INTUDER() =
+   Initialization{data_leakage_success=false;} ->((FakeRM1?r.m.dn.H_k -> FakeRM2!r.m.dn.H_k -> (FakeRM2?Reject -> FakeRM1!Reject -> Skip[]FakeRM2?m.r.dkn.nkn -> FakeRM1!m.r.dkn.nkn -> FakeRM1?r.m.dn -> FakeRM2!r.m.dn -> FakeRM2?m.r.dk.data{temp1=dk;temp2=data;} -> FakeRM1!m.r.dk.data -> 
+                                                                                                FakeRM1?r.m.dkn -> FakeRM2!r.m.dkn -> FakeRM2?m.r.nk_e.dk1{temp3=nk_e;temp4=dk1;} -> (FakeRM1!m.r.NK_e_f.dk1 -> Skip[]FakeRM1!m.r.nk_e.dk1 -> Skip);FakeRM1?r.m.nkn.H_k -> FakeRM2!r.m.nkn.H_k ->
+                                                                                                FakeRM2?m.r.k1.nk_d{call(getData,temp1,temp2,temp3,temp4,k1,nk_d,K_I);if(data_decryption_success==true){data_leakage_success=true}} ->
+                                                                                                (FakeRM1!m.r.k1.NK_d_f -> Skip[]FakeRM1!m.r.k1.nk_d -> Skip))
+  []FakeWM1?w.m.dn.dkn.H_k -> FakeWM2!w.m.dn.dkn.H_k -> (FakeWM2?Reject -> FakeWM1!Reject -> Skip[]FakeWM2?m.w.nkn -> FakeWM1!m.w.nkn -> FakeWM1?w.m.nkn.H_k -> FakeWM2!w.m.nkn.H_k -> FakeWM2?m.w.k.nk_e.nk_d -> (FakeWM1!m.w.k.nk_e.nk_d ->Skip[]FakeWM1!m.w.k.NK_e_f.NK_d_f ->Skip);
+                                                                                                   FakeWM2?m.w.dn -> FakeWM1!m.w.dn -> FakeWM1?w.m.dk.data -> FakeWM2!w.m.dk.data -> FakeWM2?m.w.dkn -> FakeWM1!m.w.dkn -> 
+                                                                                                   FakeWM1?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,NK_d_f,NONE);if(data_decryption_success==true){data_leakage_success=true}} -> FakeWM2!w.m.nk_e1.dk1-> Skip))
+                                                                                                   );INTUDER();
+                                                                                                                                                                                                     
+READER_Sig(r,m,k,dn,H_k,k_m) = 
+         Initialization{data_decryption_success=false;nk_faking_success=false;cuEn=H_k;} ->(ComRM!r.m.dn.H_k ->(ComRM?Reject{is_rejected=true;} -> Skip[] ComRM?m.r.dkn.nkn -> ComRM!r.m.dn -> ComRM?m.r.dk.data -> ComRM!r.m.dkn -> ComRM?m.r.nk_e.dk1 -> ComRM!r.m.nkn.H_k -> 
+         ComRM?m.r.k1.k_m1.nk_d{call(getNK1,NONE,nk_d,k_m,k_m1);call(getData1,dk,data,nk_e,dk1,k1,nk_d,k,k_m,k_m1)} -> Skip)
+         []FakeRM1!r.m.dn.H_k ->(FakeRM1?Reject{is_rejected=true;} -> Skip[] FakeRM1?m.r.dkn.nkn -> FakeRM1!r.m.dn -> FakeRM1?m.r.dk.data -> FakeRM1!r.m.dkn -> FakeRM1?m.r.nk_e.dk1 -> FakeRM1!r.m.nkn.H_k -> 
+         FakeRM1?m.r.k1.k_m1.nk_d{call(getNK1,NONE,nk_d,k_m,k_m1);call(getData1,dk,data,nk_e,dk1,k1,nk_d,k,k_m,k_m1)} -> Skip));READER_Sig(r,m,k,dn,H_k,k_m);
+         
+ACM_R_Sig(r,m,dkn,nkn,k,dk,data,nk_e,nk_d,k_m) =
+       (ComRM?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComRM!m.r.dkn.nkn -> ComRM?r.m.dn -> ComRM!m.r.dk.data -> ComRM?r.m.dkn -> ComRM!m.r.nk_e.dk -> ComRM?r.m.nkn.H_k -> ComRM!m.r.k.k_m.nk_d -> Skip default: ComRM!Reject -> Skip}
+       []FakeRM2?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeRM2!m.r.dkn.nkn -> FakeRM2?r.m.dn -> FakeRM2!m.r.dk.data -> FakeRM2?r.m.dkn -> FakeRM2!m.r.nk_e.dk -> FakeRM2?r.m.nkn.H_k -> FakeRM2!m.r.k.k_m.nk_d -> Skip default: FakeRM2!Reject -> Skip});
+       ACM_R_Sig(r,m,dkn,nkn,k,dk,data,nk_e,nk_d,k_m);
+       
+WRITER_Sig(w,m,k,H_k,dn,dkn,data,dk,k_m) = 
+       Initialization1{nk_faking_success=false;cuEn=H_k;} -> ((ComWM!w.m.dn.dkn.H_k -> (ComWM?Reject{is_rejected=true;} -> Skip
+                                                                                               []ComWM?m.w.nkn -> ComWM!w.m.nkn.H_k -> ComWM?m.w.k.k_m1.nk_e.nk_d{call(getNK1,NONE,nk_d,k_m,k_m1);} -> ComWM?m.w.dn -> ComWM!w.m.dk.data -> ComWM?m.w.dkn -> case{(nk_faking_success==false&&k_m!=k_m1): ComWM!w.m.k.dk -> Skip  default: ComWM!w.m.nk_e.dk -> Skip}))
+                                                                      [](FakeWM1!w.m.dn.dkn.H_k -> (FakeWM1?Reject{is_rejected=true;} -> Skip
+                                                                                               []FakeWM1?m.w.nkn -> FakeWM1!w.m.nkn.H_k -> FakeWM1?m.w.k.k_m1.nk_e.nk_d{call(getNK1,NONE,nk_d,k_m,k_m1);} -> FakeWM1?m.w.dn -> FakeWM1!w.m.dk.data -> FakeWM1?m.w.dkn -> case{(nk_faking_success==false&&k_m!=k_m1): FakeWM1!w.m.k.dk -> Skip 
+                                                                                               default: FakeWM1!w.m.nk_e.dk -> Skip})));
+                                                                                                WRITER_Sig(w,m,k,H_k,dn,dkn,data,dk,k_m);                                                                                                 
+ACM_W_Sig(w,m,nkn,nk_e,nk_d,k,k_m) =
+       Initialization2{data_decryption_success=false;} -> ((ComWM?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComWM!m.w.nkn -> ComWM?w.m.nkn.H_k -> ComWM!m.w.k.k_m.nk_e.nk_d -> ComWM!m.w.dn -> ComWM?w.m.dk.data -> ComWM!m.w.dkn -> ComWM?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: ComWM!Reject -> Skip})
+                                                       [](FakeWM2?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeWM2!m.w.nkn -> FakeWM2?w.m.nkn.H_k -> FakeWM2!m.w.k.k_m.nk_e.nk_d -> FakeWM2!m.w.dn -> FakeWM2?w.m.dk.data -> FakeWM2!m.w.dkn -> FakeWM2?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: FakeWM2!Reject -> Skip})); ACM_W_Sig(w,m,nkn,nk_e,nk_d,k,k_m);
+
+INTUDER_Sig() =
+   Initialization{data_leakage_success=false;} ->((FakeRM1?r.m.dn.H_k -> FakeRM2!r.m.dn.H_k -> (FakeRM2?Reject -> FakeRM1!Reject -> Skip[]FakeRM2?m.r.dkn.nkn -> FakeRM1!m.r.dkn.nkn -> FakeRM1?r.m.dn -> FakeRM2!r.m.dn -> FakeRM2?m.r.dk.data{temp1=dk;temp2=data;} -> FakeRM1!m.r.dk.data -> 
+                                                                                                FakeRM1?r.m.dkn -> FakeRM2!r.m.dkn -> FakeRM2?m.r.nk_e.dk1{temp3=nk_e;temp4=dk1;} -> (FakeRM1!m.r.NK_e_f.dk1 -> Skip[]FakeRM1!m.r.nk_e.dk1 -> Skip);FakeRM1?r.m.nkn.H_k -> FakeRM2!r.m.nkn.H_k ->
+                                                                                                FakeRM2?m.r.k1.k_m.nk_d{call(getData1,temp1,temp2,temp3,temp4,k1,nk_d,K_I,k_m,k_m);if(data_decryption_success==true){data_leakage_success=true}} ->
+                                                                                                (FakeRM1!m.r.k1.K_I.NK_d_f -> Skip[]FakeRM1!m.r.k1.k_m.nk_d -> Skip))
+  []FakeWM1?w.m.dn.dkn.H_k -> FakeWM2!w.m.dn.dkn.H_k -> (FakeWM2?Reject -> FakeWM1!Reject -> Skip[]FakeWM2?m.w.nkn -> FakeWM1!m.w.nkn -> FakeWM1?w.m.nkn.H_k -> FakeWM2!w.m.nkn.H_k -> FakeWM2?m.w.k.k_m.nk_e.nk_d -> (FakeWM1!m.w.k.k_m.nk_e.nk_d ->Skip[]FakeWM1!m.w.k.K_I.NK_e_f.NK_d_f ->Skip);
+                                                                                                   FakeWM2?m.w.dn -> FakeWM1!m.w.dn -> FakeWM1?w.m.dk.data -> FakeWM2!w.m.dk.data -> FakeWM2?m.w.dkn -> FakeWM1!m.w.dkn -> 
+                                                                                                   FakeWM1?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,NK_d_f,NONE);if(data_decryption_success==true){data_leakage_success=true}} -> FakeWM2!w.m.nk_e1.dk1-> Skip))
+                                                                                                   );INTUDER_Sig();
+
+    
+                                                                                                   
+                                                                                                   
+READER_Dig(r,m,k,dn,H_k,k_m,k_c) = 
+         Initialization{data_decryption_success=false;nk_faking_success=false;cuEn=H_k;} ->(ComRM!r.m.dn.H_k ->(ComRM?Reject{is_rejected=true;} -> Skip[] ComRM?m.r.dkn.nkn -> ComRM!r.m.dn -> ComRM?m.r.dk.data -> ComRM!r.m.dkn -> ComRM?m.r.nk_e.dk1 -> ComRM!r.m.nkn.H_k -> 
+         ComRM?m.r.k1.k_m1.nk_d.k_c1.k_m2{call(getNK2,NONE,nk_d,k_m,k_m1,k_m2,k_c,k_c1);call(getData2,dk,data,nk_e,dk1,k1,nk_d,k,k_m,k_m1,k_m2,k_c,k_c1)} -> Skip)
+         []FakeRM1!r.m.dn.H_k ->(FakeRM1?Reject{is_rejected=true;} -> Skip[] FakeRM1?m.r.dkn.nkn -> FakeRM1!r.m.dn -> FakeRM1?m.r.dk.data -> FakeRM1!r.m.dkn -> FakeRM1?m.r.nk_e.dk1 -> FakeRM1!r.m.nkn.H_k -> 
+         FakeRM1?m.r.k1.k_m1.nk_d.k_c1.k_m2{call(getNK2,NONE,nk_d,k_m,k_m1,k_m2,k_c,k_c1);call(getData2,dk,data,nk_e,dk1,k1,nk_d,k,k_m,k_m1,k_m2,k_c,k_c1)} -> Skip));READER_Dig(r,m,k,dn,H_k,k_m,k_c);
+         
+ACM_R_Dig(r,m,dkn,nkn,k,dk,data,nk_e,nk_d,k_m,k_c) =
+       ComRM?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComRM!m.r.dkn.nkn -> ComRM?r.m.dn -> ComRM!m.r.dk.data -> ComRM?r.m.dkn -> ComRM!m.r.nk_e.dk -> ComRM?r.m.nkn.H_k -> ComRM!m.r.k.k_m.nk_d.k_c.k_m -> Skip default: ComRM!Reject -> Skip};
+       ACM_R_Dig(r,m,dkn,nkn,k,dk,data,nk_e,nk_d,k_m,k_c)
+       []FakeRM2?r.m.dn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeRM2!m.r.dkn.nkn -> FakeRM2?r.m.dn -> FakeRM2!m.r.dk.data -> FakeRM2?r.m.dkn -> FakeRM2!m.r.nk_e.dk -> FakeRM2?r.m.nkn.H_k -> FakeRM2!m.r.k.k_m.nk_d.k_c.k_m -> Skip default: FakeRM2!Reject -> Skip};
+       ACM_R_Dig(r,m,dkn,nkn,k,dk,data,nk_e,nk_d,k_m,k_c);
+
+WRITER_Dig(w,m,k,H_k,dn,dkn,data,dk,k_m,k_c) = 
+       Initialization1{nk_faking_success=false;cuEn=H_k;} -> ((ComWM!w.m.dn.dkn.H_k -> (ComWM?Reject{is_rejected=true;} -> Skip
+                                                                                               []ComWM?m.w.nkn -> ComWM!w.m.nkn.H_k -> ComWM?m.w.k.k_m1.nk_e.nk_d.k_c1.k_m2{call(getNK2,NONE,nk_d,k_m,k_m1,k_m2,k_c,k_c1);} -> ComWM?m.w.dn -> ComWM!w.m.dk.data -> ComWM?m.w.dkn -> case{(nk_faking_success==false&&k_c1!=k_c): ComWM!w.m.k.dk -> Skip 
+                                                                                               default: ComWM!w.m.nk_e.dk -> Skip}))
+                                                                      [](FakeWM1!w.m.dn.dkn.H_k -> (FakeWM1?Reject{is_rejected=true;} -> Skip
+                                                                                               []FakeWM1?m.w.nkn -> FakeWM1!w.m.nkn.H_k -> FakeWM1?m.w.k.k_m1.nk_e.nk_d.k_c1.k_m2{call(getNK2,NONE,nk_d,k_m,k_m1,k_m2,k_c,k_c1);} -> FakeWM1?m.w.dn -> FakeWM1!w.m.dk.data -> FakeWM1?m.w.dkn -> 
+                                                                                               case{(nk_faking_success==false&&k_c1!=k_c): FakeWM1!w.m.k.dk -> Skip
+                                                                                               default: FakeWM1!w.m.nk_e.dk -> Skip})));
+                                                                                                WRITER_Dig(w,m,k,H_k,dn,dkn,data,dk,k_m,k_c);
+                                                                                                
+ACM_W_Dig(w,m,nkn,nk_e,nk_d,k,k_m,k_c) =
+       Initialization2{data_decryption_success=false;} -> ((ComWM?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: ComWM!m.w.nkn -> ComWM?w.m.nkn.H_k -> ComWM!m.w.k.k_m.nk_e.nk_d.k_c.k_m -> ComWM!m.w.dn -> ComWM?w.m.dk.data -> ComWM!m.w.dkn -> ComWM?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: ComWM!Reject -> Skip})
+                                                       [](FakeWM2?w.m.dn.dkn.H_k{call(Revoke,reEn);call(checkEntry,H_k)} -> case{hit==true: FakeWM2!m.w.nkn -> FakeWM2?w.m.nkn.H_k -> FakeWM2!m.w.k.k_m.nk_e.nk_d.k_c.k_m -> FakeWM2!m.w.dn -> FakeWM2?w.m.dk.data -> FakeWM2!m.w.dkn -> FakeWM2?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,nk_d,NONE)} -> Skip 
+                                                                                                                             default: FakeWM2!Reject -> Skip})); ACM_W_Dig(w,m,nkn,nk_e,nk_d,k,k_m,k_c);                                                                                                
+                                                                                                   
+INTUDER_Dig() =
+   Initialization{data_leakage_success=false;} ->((FakeRM1?r.m.dn.H_k -> FakeRM2!r.m.dn.H_k -> (FakeRM2?Reject -> FakeRM1!Reject -> Skip[]FakeRM2?m.r.dkn.nkn -> FakeRM1!m.r.dkn.nkn -> FakeRM1?r.m.dn -> FakeRM2!r.m.dn -> FakeRM2?m.r.dk.data{temp1=dk;temp2=data;} -> FakeRM1!m.r.dk.data -> 
+                                                                                                FakeRM1?r.m.dkn -> FakeRM2!r.m.dkn -> FakeRM2?m.r.nk_e.dk1{temp3=nk_e;temp4=dk1;} -> (FakeRM1!m.r.NK_e_f.dk1 -> Skip[]FakeRM1!m.r.nk_e.dk1 -> Skip);FakeRM1?r.m.nkn.H_k -> FakeRM2!r.m.nkn.H_k ->
+                                                                                                FakeRM2?m.r.k1.k_m.nk_d.k_c.k_m1{call(getData1,temp1,temp2,temp3,temp4,k1,nk_d,K_I,k_m,k_m);if(data_decryption_success==true){data_leakage_success=true}} ->
+                                                                                                (FakeRM1!m.r.k1.K_I.NK_d_f.K_I.K_I -> Skip[]FakeRM1!m.r.k1.k_m.nk_d.k_c.k_m1 -> Skip))
+  []FakeWM1?w.m.dn.dkn.H_k -> FakeWM2!w.m.dn.dkn.H_k -> (FakeWM2?Reject -> FakeWM1!Reject -> Skip[]FakeWM2?m.w.nkn -> FakeWM1!m.w.nkn -> FakeWM1?w.m.nkn.H_k -> FakeWM2!w.m.nkn.H_k -> FakeWM2?m.w.k.k_m.nk_e.nk_d.k_c.k_m1 -> (FakeWM1!m.w.k.k_m.nk_e.nk_d.k_c.k_m1 ->Skip[]FakeWM1!m.w.k.K_I.NK_e_f.NK_d_f.K_I.K_I ->Skip);
+                                                                                                   FakeWM2?m.w.dn -> FakeWM1!m.w.dn -> FakeWM1?w.m.dk.data -> FakeWM2!w.m.dk.data -> FakeWM2?m.w.dkn -> FakeWM1!m.w.dkn -> 
+                                                                                                   FakeWM1?w.m.nk_e1.dk1{call(getData,dk,data,nk_e1,dk1,NONE,NK_d_f,NONE);if(data_decryption_success==true){data_leakage_success=true}} -> FakeWM2!w.m.nk_e1.dk1-> Skip))
+                                                                                                   );INTUDER_Dig();
+ 
+SystemR() = READER(R,M,K,DN,H_K_4)||ACM_R(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d)||INTUDER();
+
+SystemR_re() = READER(R,M,K,DN,H_K_3)||ACM_R(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d)||INTUDER();
+
+SystemW() = WRITER(W,M,K,H_K_4,DN,DKN,DATA,DK)||ACM_W(W,M,NKN,NK_e,NK_d,K)||INTUDER();
+
+SystemW_re() = WRITER(W,M,K,H_K_3,DN,DKN,DATA,DK)||ACM_W(W,M,NKN,NK_e,NK_d,K)||INTUDER();
+
+SystemR_Sig() = READER_Sig(R,M,K,DN,H_K_4,K_M)||ACM_R_Sig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M)||INTUDER_Sig();
+
+SystemR_Sig_re() = READER_Sig(R,M,K,DN,H_K_3,K_M)||ACM_R_Sig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M)||INTUDER_Sig();
+
+SystemW_Sig() = WRITER_Sig(W,M,K,H_K_4,DN,DKN,DATA,DK,K_M)||ACM_W_Sig(W,M,NKN,NK_e,NK_d,K,K_M)||INTUDER_Sig();
+
+SystemW_Sig_re() = WRITER_Sig(W,M,K,H_K_3,DN,DKN,DATA,DK,K_M)||ACM_W_Sig(W,M,NKN,NK_e,NK_d,K,K_M)||INTUDER_Sig();
+
+SystemR_Sig_C() = READER_Sig(R,M,K,DN,H_K_4,K_I)||ACM_R_Sig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M)||INTUDER_Sig();
+
+SystemW_Sig_C() = WRITER_Sig(W,M,K,H_K_4,DN,DKN,DATA,DK,K_I)||ACM_W_Sig(W,M,NKN,NK_e,NK_d,K,K_M)||INTUDER_Sig();
+
+SystemR_Dig() = READER_Dig(R,M,K,DN,H_K_4,K_M,K_A)||ACM_R_Dig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M,K_A)||INTUDER_Dig();
+
+SystemR_Dig_re() = READER_Dig(R,M,K,DN,H_K_3,K_M,K_A)||ACM_R_Dig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M,K_A)||INTUDER_Dig();
+
+SystemW_Dig() = WRITER_Dig(W,M,K,H_K_4,DN,DKN,DATA,DK,K_M,K_A)||ACM_W_Dig(W,M,NKN,NK_e,NK_d,K,K_M,K_A)||INTUDER_Dig();
+
+SystemW_Dig_re() = WRITER_Dig(W,M,K,H_K_3,DN,DKN,DATA,DK,K_M,K_A)||ACM_W_Dig(W,M,NKN,NK_e,NK_d,K,K_M,K_A)||INTUDER_Dig();
+
+SystemR_Dig_C() = READER_Dig(R,M,K,DN,H_K_4,K_I,K_A)||ACM_R_Dig(R,M,DKN,NKN,K,DK,DATA,NK_e,NK_d,K_M,K_A)||INTUDER_Dig();
+
+SystemW_Dig_C() = WRITER_Dig(W,M,K,H_K_4,DN,DKN,DATA,DK,K_I,K_A)||ACM_W_Dig(W,M,NKN,NK_e,NK_d,K,K_M,K_A)||INTUDER_Dig();
+
+
+#define Data_Acq_Success data_decryption_success==true;
+#define NK_Fak_Success nk_faking_success==true;
+#define Data_Leak_Success data_leakage_success==true;
+#define Revoked_Entity_Denied_Success ((cuEn==reEn)&&(is_rejected==true)) || ((cuEn!=reEn)&&(is_rejected==false));
+
+#assert SystemR() deadlockfree;
+#assert SystemW() deadlockfree;
+#assert SystemR_re() deadlockfree;
+#assert SystemW_re() deadlockfree;
+#assert SystemR() reaches Data_Acq_Success;
+#assert SystemW() reaches Data_Acq_Success;
+#assert SystemR_re() reaches Data_Acq_Success;
+#assert SystemW_re() reaches Data_Acq_Success;
+#assert SystemR() |= []!NK_Fak_Success;
+#assert SystemW() |= []!NK_Fak_Success;
+#assert SystemR_re() |= []!NK_Fak_Success;
+#assert SystemW_re() |= []!NK_Fak_Success;
+#assert SystemR() |= []!Data_Leak_Success;
+#assert SystemW() |= []!Data_Leak_Success;
+#assert SystemR_re() |= []!Data_Leak_Success;
+#assert SystemW_re() |= []!Data_Leak_Success;
+#assert SystemR() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemR_re() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_re() |= []<>Revoked_Entity_Denied_Success;
+
+#assert SystemR_Sig() deadlockfree;
+#assert SystemW_Sig() deadlockfree;
+#assert SystemR_Sig_re() deadlockfree;
+#assert SystemW_Sig_re() deadlockfree;
+#assert SystemR_Sig_C() deadlockfree;
+#assert SystemW_Sig_C() deadlockfree;
+#assert SystemR_Sig() reaches Data_Acq_Success;
+#assert SystemW_Sig() reaches Data_Acq_Success;
+#assert SystemR_Sig_re() reaches Data_Acq_Success;
+#assert SystemW_Sig_re() reaches Data_Acq_Success;
+#assert SystemR_Sig_C() reaches Data_Acq_Success;
+#assert SystemW_Sig_C() reaches Data_Acq_Success;
+#assert SystemR_Sig() |= []!NK_Fak_Success;
+#assert SystemW_Sig() |= []!NK_Fak_Success;
+#assert SystemR_Sig_C() |= []!NK_Fak_Success;
+#assert SystemW_Sig_C() |= []!NK_Fak_Success;
+#assert SystemR_Sig_re() |= []!NK_Fak_Success;
+#assert SystemW_Sig_re() |= []!NK_Fak_Success;
+#assert SystemR_Sig() |= []!Data_Leak_Success;
+#assert SystemW_Sig() |= []!Data_Leak_Success;
+#assert SystemR_Sig_re() |= []!Data_Leak_Success;
+#assert SystemW_Sig_re() |= []!Data_Leak_Success;
+#assert SystemR_Sig_C() |= []!Data_Leak_Success;
+#assert SystemW_Sig_C() |= []!Data_Leak_Success;
+#assert SystemR_Sig() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Sig() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemR_Sig_re() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Sig_re() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemR_Sig_C() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Sig_C() |= []<>Revoked_Entity_Denied_Success;
+
+#assert SystemR_Dig() deadlockfree;
+#assert SystemW_Dig() deadlockfree;
+#assert SystemR_Dig_re() deadlockfree;
+#assert SystemW_Dig_re() deadlockfree;
+#assert SystemR_Dig_C() deadlockfree;
+#assert SystemW_Dig_C() deadlockfree;
+#assert SystemR_Dig() reaches Data_Acq_Success;
+#assert SystemW_Dig() reaches Data_Acq_Success;
+#assert SystemR_Dig_re() reaches Data_Acq_Success;
+#assert SystemW_Dig_re() reaches Data_Acq_Success;
+#assert SystemR_Dig_C() reaches Data_Acq_Success;
+#assert SystemW_Dig_C() reaches Data_Acq_Success;
+#assert SystemR_Dig() |= []!NK_Fak_Success;
+#assert SystemW_Dig() |= []!NK_Fak_Success;
+#assert SystemR_Dig_re() |= []!NK_Fak_Success;
+#assert SystemW_Dig_re() |= []!NK_Fak_Success;
+#assert SystemR_Dig_C() |= []!NK_Fak_Success;
+#assert SystemW_Dig_C() |= []!NK_Fak_Success;
+#assert SystemR_Dig() |= []!Data_Leak_Success;
+#assert SystemW_Dig() |= []!Data_Leak_Success;
+#assert SystemR_Dig_re() |= []!Data_Leak_Success;
+#assert SystemW_Dig_re() |= []!Data_Leak_Success;
+#assert SystemR_Dig_C() |= []!Data_Leak_Success;
+#assert SystemW_Dig_C() |= []!Data_Leak_Success;
+#assert SystemR_Dig() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Dig() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemR_Dig_re() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Dig_re() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemR_Dig_C() |= []<>Revoked_Entity_Denied_Success;
+#assert SystemW_Dig_C() |= []<>Revoked_Entity_Denied_Success;
+
+
+
+
